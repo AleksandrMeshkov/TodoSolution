@@ -23,6 +23,14 @@ jobs:
         with:
           dotnet-version: '8.0.x'
           
+      - name: Diagnostic - List files
+        run: |
+          echo "=== Project structure ==="
+          find . -name "*.csproj" -type f
+          echo "=== Current directory ==="
+          pwd
+          ls -la
+          
       - name: Create artifacts directory
         run: mkdir -p artifacts
         
@@ -32,17 +40,25 @@ jobs:
       - name: Build (Release)
         run: dotnet build -c Release --no-restore
         
-      - name: Pack
-        run: dotnet pack Todo.Core/Todo.Core.csproj -c Release -o ./artifacts --verbosity detailed
-        
-      - name: List artifacts
+      - name: Pack with diagnostics
         run: |
-          echo "Current directory:"
-          pwd
-          echo "Artifacts content:"
-          ls -la ./artifacts/ || echo "No artifacts found"
-          echo "All nupkg files:"
-          find . -name "*.nupkg" -type f || echo "No nupkg files found"
+          echo "=== Packing projects ==="
+          dotnet pack -c Release -o ./artifacts --verbosity normal
+          echo "=== Pack result ==="
+          ls -la ./artifacts/ || echo "No artifacts after pack"
           
-      - name: Push package to GitHub Packages (NuGet)
-        run: dotnet nuget push ./artifacts/*.nupkg --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+      - name: Find all packages
+        run: |
+          echo "=== Searching for nupkg files ==="
+          find . -name "*.nupkg" -type f | head -10
+          echo "=== Artifacts directory ==="
+          ls -la ./artifacts/ || echo "Artifacts directory is empty"
+          
+      - name: Push package to GitHub Packages
+        run: |
+          if [ -n "$(find ./artifacts -name '*.nupkg' -type f)" ]; then
+            dotnet nuget push ./artifacts/*.nupkg --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+          else
+            echo "ERROR: No nupkg files found in artifacts directory!"
+            exit 1
+          fi
