@@ -17,20 +17,32 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '8.0.x'
+          
+      - name: Create artifacts directory
+        run: mkdir -p artifacts
+        
       - name: Restore
         run: dotnet restore
-
+        
       - name: Build (Release)
         run: dotnet build -c Release --no-restore
-
+        
       - name: Pack
-        run: dotnet pack Todo.Core/Todo.Core.csproj -c Release -o ./artifacts
-
+        run: dotnet pack Todo.Core/Todo.Core.csproj -c Release -o ./artifacts --verbosity detailed
+        
       - name: List artifacts
-        run: ls -la ./artifacts || true
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Artifacts content:"
+          ls -la ./artifacts/ || echo "No artifacts found"
+          echo "All nupkg files:"
+          find . -name "*.nupkg" -type f || echo "No nupkg files found"
+          
       - name: Push package to GitHub Packages (NuGet)
         run: dotnet nuget push ./artifacts/*.nupkg --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
